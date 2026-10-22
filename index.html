@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>お散歩ビンゴ</title>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#f6f3ea;--card:#fffdf7;--ink:#2b2a26;--sub:#7a766a;--line:#e2dccb;
+  --accent:var(--acc-l,#4f8a5b);--accent-ink:#fff;--bingo:#ffd966;--bingo-ink:#4a3a00;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b1d1a;--card:#262925;--ink:#ecebe4;--sub:#a3a08f;--line:#3a3e37;
+    --accent:var(--acc-d,#6fb07c);--accent-ink:#10200f;--bingo:#d9a91c;--bingo-ink:#1f1700;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1b1d1a;--card:#262925;--ink:#ecebe4;--sub:#a3a08f;--line:#3a3e37;
+  --accent:var(--acc-d,#6fb07c);--accent-ink:#10200f;--bingo:#d9a91c;--bingo-ink:#1f1700;
+  color-scheme:dark;
+}
+:root[data-season="sp"]{--acc-l:#c2557f;--acc-d:#e88fb0}
+:root[data-season="su"]{--acc-l:#2b84ad;--acc-d:#5bb8d9}
+:root[data-season="au"]{--acc-l:#bf6420;--acc-d:#e69a52}
+:root[data-season="wi"]{--acc-l:#5578b0;--acc-d:#8fb0e0}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic",Meiryo,system-ui,sans-serif;min-height:100%}
+main{max-width:520px;margin:0 auto;padding:20px 16px 32px}
+h1{font-size:1.4rem;margin:0 0 4px}
+h2{font-size:1.1rem;margin:0 0 12px}
+.lead{margin:0 0 14px;color:var(--sub);font-size:.9rem}
+.bar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer}
+button.on,button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+#grid{display:grid;gap:6px}
+.cell{
+  aspect-ratio:1;border-radius:12px;padding:0;display:flex;align-items:center;justify-content:center;text-align:center;
+  background-size:cover;background-position:center;position:relative;overflow:hidden;
+  font-size:clamp(.7rem,3.2vw,1rem);line-height:1.25;overflow-wrap:anywhere;border-radius:12px
+}
+.cell .t{padding:4px}
+.cell.d{background-color:color-mix(in srgb,var(--accent) 24%,var(--card));border-color:var(--accent)}
+.cell.d::after{content:"✓";position:absolute;top:3px;right:7px;font-size:.8em;color:var(--accent)}
+.cell.free{font-weight:700}
+.cell.b{background-color:var(--bingo);color:var(--bingo-ink);border-color:var(--bingo);outline:3px solid var(--bingo);outline-offset:-3px}
+.cell.b::after{color:var(--bingo-ink)}
+.cell.p .t{background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:2px 5px;margin:0 4px;position:absolute;bottom:4px;left:0;right:0;font-size:.75em}
+.cell.p::after{color:#fff;text-shadow:0 0 3px #000}
+#status{margin:14px 0 0;font-size:.95rem;color:var(--sub);text-align:center}
+#toast{min-height:1.8em;margin-top:8px;text-align:center;font-weight:700;color:var(--accent);font-size:1.1rem}
+.hint{margin-top:18px;font-size:.8rem;color:var(--sub);text-align:center}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.panel{background:var(--card);width:min(520px,100%);border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));max-height:92%;overflow:auto}
+.panel img{display:block;width:100%;max-height:40vh;object-fit:cover;border-radius:12px;margin-bottom:12px}
+.btns{display:grid;gap:8px}
+textarea{width:100%;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin:10px 0;resize:none}
+#shMsg{min-height:1.4em;font-size:.85rem;color:var(--accent);margin:0 0 6px}
+</style>
+</head>
+<body>
+<main>
+  <h1>🚶 お散歩ビンゴ</h1>
+  <p class="lead">見つけたマスをタップ。写真を撮って記録もできます。</p>
+  <div class="row" id="seasons"></div>
+  <div class="bar">
+    <div class="row" id="sizes" style="margin:0"></div>
+    <div class="row" style="margin:0"><button id="shareBtn">👫 シェア</button><button class="primary" id="reset">新しいカード</button></div>
+  </div>
+  <div id="grid"></div>
+  <div id="toast" aria-live="polite"></div>
+  <p id="status"></p>
+  <p class="hint">進み具合と写真はこの端末だけに保存されます。シェアで送れるのはカード（お題）です。</p>
+</main>
+
+<div class="ov" id="sheet" hidden><div class="panel">
+  <h2 id="sTitle"></h2>
+  <img id="sImg" alt="" hidden>
+  <div class="btns">
+    <button class="primary" id="sToggle"></button>
+    <button id="sCam">📷 写真を撮る</button>
+    <button id="sPick">🖼 アルバムから選ぶ</button>
+    <button id="sDel" hidden>🗑 写真を削除</button>
+    <button id="sClose">閉じる</button>
+  </div>
+</div></div>
+
+<div class="ov" id="shareP" hidden><div class="panel">
+  <h2>友達とシェア</h2>
+  <div class="row" id="shTabs"><button data-m="invite" class="on">同じカードに招待</button><button data-m="result">結果を送る</button></div>
+  <textarea id="shText" readonly rows="5"></textarea>
+  <p id="shMsg"></p>
+  <div class="btns"><button class="primary" id="shCopy">コピー</button><button id="shShare" hidden>共有…</button><button id="shClose">閉じる</button></div>
+</div></div>
+
+<input type="file" accept="image/*" capture="environment" id="fCam" hidden>
+<input type="file" accept="image/*" id="fPick" hidden>
+
+<script>
+const SEASONS=[["sp","春","🌸"],["su","夏","☀️"],["au","秋","🍁"],["wi","冬","⛄"]];
+const COMMON=["赤いポスト","猫","犬","自転車","自動販売機","踏切","鳥居","公園","滑り台","花壇","電柱","コンビニ","神社","小さな川","橋","階段","古い建物","パン屋さん","青い車","バス","電車","ベンチ","影の形","飛行機","手書きの看板","水たまり","花屋さん","郵便局","鳩","カラス","お地蔵さん","工事現場","丸いもの","猫の置物","三角屋根の家","学校","お寺の鐘","野菜の直売所","面白い形の雲","木陰"];
+const DATA={
+sp:["桜","つくし","菜の花","チューリップ","たんぽぽ","ツバメ","蝶","新緑","藤の花","シロツメクサ","ミツバチ","花見をする人","ぽかぽかの日だまり","若葉の香り","梅の花","ヒヤシンス","芽吹いた木"],
+su:["ひまわり","入道雲","セミの声","風鈴","かき氷","朝顔","麦わら帽子","日傘の人","打ち水","スイカ","トンボ","夕立のあと","蚊取り線香の香り","アイスを食べる人","濃い影","緑のカーテン","セミの抜け殻"],
+au:["落ち葉","どんぐり","紅葉","金木犀の香り","銀杏並木","彼岸花","コスモス","柿の木","すすき","秋の夕焼け","赤とんぼ","焼き芋","稲刈りのあと","うろこ雲","ハロウィンの飾り","きのこ","松ぼっくり"],
+wi:["白い息","霜柱","椿","南天の実","マフラーの人","雪だるま","イルミネーション","日だまりの猫","冬の星座","みかん","枯れ木","しめ飾り","湯気","ロウバイ","手袋の人","山茶花","凍った水たまり"]};
+const BASE=location.href.split("#")[0];
+const KEY="walkbingo2";
+const $=id=>document.getElementById(id);
+let st={prog:{},last:{}},S=null,photos={},cur=-1,shareMode="invite";
+
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function makeItems(season,size,seed){
+  const r=rng(seed*7919+size*31+SEASONS.findIndex(s=>s[0]===season)),n=size*size;
+  const a=shuffle(DATA[season].slice(),r).slice(0,Math.ceil(n/2));
+  const items=shuffle(a.concat(shuffle(COMMON.slice(),r).slice(0,n-a.length)),r);
+  if(size%2)items[(n-1)/2]="FREE";
+  return items;
+}
+const cid=()=>S.season+"-"+S.size+"-"+S.seed;
+const rand=()=>Math.floor(Math.random()*900000)+100000;
+function seasonNow(){const m=new Date().getMonth()+1;return m>=3&&m<=5?"sp":m>=6&&m<=8?"su":m>=9&&m<=11?"au":"wi"}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({cur:{season:S.season,size:S.size,seed:S.seed},prog:st.prog,last:st.last}))}catch(e){}}
+
+/* 写真の保存（IndexedDB） */
+let dbp;
+function odb(){return dbp||(dbp=new Promise((ok,ng)=>{try{const q=indexedDB.open("walkbingo",1);q.onupgradeneeded=()=>q.result.createObjectStore("photos");q.onsuccess=()=>ok(q.result);q.onerror=()=>ng(q.error)}catch(e){ng(e)}}))}
+function dbx(mode,fn){return odb().then(db=>new Promise((ok,ng)=>{const tx=db.transaction("photos",mode),r=fn(tx.objectStore("photos"));tx.oncomplete=()=>ok(r.result);tx.onerror=()=>ng(tx.error);tx.onabort=()=>ng(tx.error)}))}
+const dbGet=k=>dbx("readonly",s=>s.get(k)).then(v=>v||null,()=>null);
+const dbPut=(k,v)=>dbx("readwrite",s=>s.put(v,k)).then(()=>true,()=>false);
+const dbDel=k=>dbx("readwrite",s=>s.delete(k)).then(()=>true,()=>false);
+
+function setCard(season,size,seed){
+  const n=size*size,id=season+"-"+size+"-"+seed;
+  let done=st.prog[id];
+  if(!Array.isArray(done)||done.length!==n){done=Array(n).fill(false);if(size%2)done[(n-1)/2]=true}
+  S={season,size,seed,items:makeItems(season,size,seed),done};
+  st.prog[id]=done;st.last[season+"-"+size]=seed;
+  photos={};
+  document.documentElement.dataset.season=season;
+  save();render();$("toast").textContent="";
+  loadPhotos(id);
+}
+async function loadPhotos(id){
+  const out={};
+  await Promise.all(S.items.map(async(_,i)=>{const v=await dbGet(id+":"+i);if(v)out[i]=v}));
+  if(S&&cid()===id){photos=out;render()}
+}
+function doneLines(){
+  const n=S.size,L=[];
+  for(let r=0;r<n;r++)L.push(Array.from({length:n},(_,c)=>r*n+c));
+  for(let c=0;c<n;c++)L.push(Array.from({length:n},(_,r)=>r*n+c));
+  L.push(Array.from({length:n},(_,i)=>i*n+i));
+  L.push(Array.from({length:n},(_,i)=>i*n+n-1-i));
+  return L.filter(l=>l.every(i=>S.done[i]));
+}
+function render(){
+  const g=$("grid");
+  g.style.gridTemplateColumns="repeat("+S.size+",1fr)";
+  const bset=new Set(doneLines().flat());
+  g.innerHTML="";
+  S.items.forEach((t,i)=>{
+    const free=t==="FREE",b=document.createElement("button");
+    b.type="button";
+    b.className="cell"+(S.done[i]?" d":"")+(free?" free":"")+(bset.has(i)?" b":"")+(photos[i]?" p":"");
+    if(photos[i])b.style.backgroundImage="url("+photos[i]+")";
+    const sp=document.createElement("span");sp.className="t";sp.textContent=t;b.appendChild(sp);
+    b.onclick=()=>{if(!free)openSheet(i)};
+    g.appendChild(b);
+  });
+  $("status").textContent="ビンゴ "+doneLines().length+" ライン ・ "+S.done.filter(Boolean).length+" / "+S.items.length+" マス";
+  document.querySelectorAll("#seasons button").forEach(b=>b.classList.toggle("on",b.dataset.s===S.season));
+  document.querySelectorAll("#sizes button").forEach(b=>b.classList.toggle("on",+b.dataset.s===S.size));
+}
+function mark(i,val){
+  const before=doneLines().length;
+  S.done[i]=val;save();
+  const t=$("toast");
+  if(S.done.every(Boolean))t.textContent="🎉 全マス達成！おみごと！";
+  else if(doneLines().length>before)t.textContent="🎉 ビンゴ！";
+  else t.textContent="";
+  render();
+}
+
+/* マスのシート */
+function openSheet(i){
+  cur=i;$("sTitle").textContent=S.items[i];
+  $("sImg").hidden=!photos[i];if(photos[i])$("sImg").src=photos[i];
+  $("sToggle").textContent=S.done[i]?"チェックを外す":"✓ 見つけた！";
+  $("sDel").hidden=!photos[i];
+  $("sheet").hidden=false;
+}
+function closeSheet(){$("sheet").hidden=true;cur=-1}
+function shrink(f){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej();
+    fr.onload=()=>{
+      const im=new Image();
+      im.onerror=()=>rej();
+      im.onload=()=>{
+        const k=Math.min(1,640/Math.max(im.width,im.height)),c=document.createElement("canvas");
+        c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+        c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+        res(c.toDataURL("image/jpeg",.72));
+      };
+      im.src=fr.result;
+    };
+    fr.readAsDataURL(f);
+  });
+}
+function pick(e){
+  const f=e.target.files&&e.target.files[0];e.target.value="";
+  if(!f||cur<0)return;
+  const i=cur,id=cid();
+  shrink(f).then(async url=>{
+    if(cid()!==id)return;
+    photos[i]=url;
+    const ok=await dbPut(id+":"+i,url);
+    closeSheet();mark(i,true);
+    if(!ok&&!$("toast").textContent)$("toast").textContent="写真を保存できませんでした（このページを閉じると消えます）";
+  }).catch(()=>{$("toast").textContent="写真を読み込めませんでした"});
+}
+$("sToggle").onclick=()=>{const i=cur;closeSheet();mark(i,!S.done[i])};
+$("sCam").onclick=()=>$("fCam").click();
+$("sPick").onclick=()=>$("fPick").click();
+$("fCam").onchange=pick;$("fPick").onchange=pick;
+$("sDel").onclick=()=>{const i=cur;delete photos[i];dbDel(cid()+":"+i);closeSheet();render()};
+$("sClose").onclick=closeSheet;
+$("sheet").onclick=e=>{if(e.target===$("sheet"))closeSheet()};
+
+/* シェア */
+function shareText(){
+  const link=BASE+"#"+cid(),sn=SEASONS.find(s=>s[0]===S.season);
+  if(shareMode==="invite")return "お散歩ビンゴ（"+sn[1]+"・"+S.size+"×"+S.size+"）を一緒にやろう！同じカードで歩き比べよう 🚶\n"+link;
+  return "お散歩ビンゴ "+sn[2]+sn[1]+"（"+S.size+"×"+S.size+"）\nビンゴ"+doneLines().length+"ライン・"+S.done.filter(Boolean).length+"/"+S.items.length+"マス達成！\n同じカードで遊ぶ → "+link;
+}
+function showShare(){
+  $("shText").value=shareText();$("shMsg").textContent="";
+  document.querySelectorAll("#shTabs button").forEach(b=>b.classList.toggle("on",b.dataset.m===shareMode));
+}
+async function copyText(){
+  const t=$("shText");
+  try{await navigator.clipboard.writeText(t.value);$("shMsg").textContent="コピーしました"}
+  catch(e){t.select();try{document.execCommand("copy");$("shMsg").textContent="コピーしました"}catch(e2){$("shMsg").textContent="選択しました。長押しでコピーしてください"}}
+}
+$("shareBtn").onclick=()=>{showShare();$("shareP").hidden=false};
+document.querySelectorAll("#shTabs button").forEach(b=>b.onclick=()=>{shareMode=b.dataset.m;showShare()});
+$("shCopy").onclick=copyText;
+$("shShare").hidden=!navigator.share;
+$("shShare").onclick=async()=>{try{await navigator.share({text:$("shText").value})}catch(e){if(e&&e.name!=="AbortError")copyText()}};
+$("shClose").onclick=()=>{$("shareP").hidden=true};
+$("shareP").onclick=e=>{if(e.target===$("shareP"))$("shareP").hidden=true};
+
+/* 季節・サイズ・初期化 */
+SEASONS.forEach(s=>{const b=document.createElement("button");b.type="button";b.dataset.s=s[0];b.textContent=s[2]+" "+s[1];b.onclick=()=>setCard(s[0],S.size,st.last[s[0]+"-"+S.size]||rand());$("seasons").appendChild(b)});
+[3,4,5].forEach(n=>{const b=document.createElement("button");b.type="button";b.dataset.s=n;b.textContent=n+"×"+n;b.onclick=()=>setCard(S.season,n,st.last[S.season+"-"+n]||rand());$("sizes").appendChild(b)});
+$("reset").onclick=()=>setCard(S.season,S.size,rand());
+
+let saved=null;
+try{saved=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
+if(saved&&saved.prog&&typeof saved.prog==="object"){st.prog=saved.prog;st.last=saved.last||{}}
+const hm=/^#?(sp|su|au|wi)-([345])-(\d{1,7})$/.exec(location.hash||"");
+if(hm)setCard(hm[1],+hm[2],+hm[3]);
+else if(saved&&saved.cur&&DATA[saved.cur.season]&&[3,4,5].includes(saved.cur.size))setCard(saved.cur.season,saved.cur.size,saved.cur.seed);
+else setCard(seasonNow(),4,rand());
+</script>
+</body>
+</html>
